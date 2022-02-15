@@ -121,7 +121,7 @@ class Storage(Model):
         function_name = "Storage.update_size_by_id"
         self.logger.debug(f"{function_name} called for storage_id:{storage_id}, used_size:{used_size}")
         self.reconnect()
-        self.cursor("UPDATE `storages` SET used_space = %s WHERE storage_id = %s;", (used_size, storage_id))
+        self.cursor.execute("UPDATE `storages` SET used_space = %s WHERE storage_id = %s;", (used_size, storage_id))
         return self.cursor.lastrowid
 
 
