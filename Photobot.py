@@ -17,7 +17,7 @@ import random
 
 import Databases
 
-LOG_BASE_FORMAT = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  [%(name)]  %(message)s")
+LOG_BASE_FORMAT = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  <%(name)s>  %(message)s")
 LOG_ROOT_LOGGER = logging.getLogger(__name__)
 LOG_FILE_LOGGER = logging.handlers.RotatingFileHandler("telegram.log", mode='a', maxBytes=10*1024*1024, backupCount=10, encoding='UTF-8')
 LOG_FILE_LOGGER.setFormatter(LOG_BASE_FORMAT)
