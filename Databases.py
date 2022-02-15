@@ -3,7 +3,8 @@ import os
 import mysql.connector
 import logging
 
-STORAGE_DEFAULT_TYPE = 256*1024*1024
+STORAGE_DEFAULT_SIZE = 256*1024*1024
+STORAGE_DEFAULT_TYPE = "local"
 
 
 class Database:
@@ -74,11 +75,29 @@ class Database:
         self.cursor.execute("INSERT INTO `users` (tg_id) VALUES (%s);", (tg_id,))
         return self.cursor.lastrowid
 
-    def add_storage(self, path, user_id):
-
+    def add_storage(self, user_id, path, type=STORAGE_DEFAULT_TYPE, size=STORAGE_DEFAULT_SIZE):
+        if not self.cnx.is_connected():
+            self.connect()
+        self.logger.debug(f"add_storage called user:{user_id}, path: {path}, type: {type}, size: {size}")
         query = "INSERT INTO `storages` (type, path, size, used_space, user_id) VALUES (%s, %s, %s, %s, %s);"
+        self.cursor.execute(query, (type, path, size, 0, user_id,))
+        return self.cursor.lastrowid
 
-        self.cursor.execute("")
+    def get_storage_by_id(self, ):
+        if not self.cnx.is_connected():
+            self.connect()
+        self.logger.debug(f"get_storage_by_id")
+
+    def add_photo(self, owner_id, storage_id, filename, size):
+        if not self.cnx.is_connected():
+            self.connect()
+        self.logger.debug(f"add_photo called owner:{owner_id}, storage:{storage_id}, filename:{filename}, size:{size}")
+        photo_query = "INSERT INTO `photos` (storage_id, filename, size, owner_id) VALUES (%s, %s, %s, %s);"
+        storage_query = "UPDATE `storages` SET used_space = %s WHERE id = %s;"
+        self.cursor.execute(photo_query, (storage_id, filename, size, owner_id,))
+
+
+
 
 
 
