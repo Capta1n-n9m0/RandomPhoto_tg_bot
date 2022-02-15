@@ -66,7 +66,7 @@ class User(Model):
         function_name = "User.select_by_user_id"
         self.logger.debug(f"{function_name} called for {user_id}")
         self.reconnect()
-        self.cursor.execute("SELECT * FROM `users` WHERE id = %s;", (user_id,))
+        self.cursor.execute("SELECT * FROM `users` WHERE user_id = %s;", (user_id,))
         return self.cursor.fetchall()
 
     def select_by_tg_id(self, tg_id):
@@ -122,6 +122,7 @@ class Storage(Model):
         self.logger.debug(f"{function_name} called for storage_id:{storage_id}, used_size:{used_size}")
         self.reconnect()
         self.cursor("UPDATE `storages` SET used_space = %s WHERE storage_id = %s;", (used_size, storage_id))
+        return self.cursor.lastrowid
 
 
 class Photo(Model):
@@ -132,13 +133,16 @@ class Photo(Model):
         function_name = "Photo.select_by_user_id"
         self.logger.debug(f"{function_name} called for {user_id}")
         self.reconnect()
+        self.cursor.execute("SELECT * FROM `photos` WHERE user_id = %s", (user_id,))
+        return self.cursor.fetchall()
 
     def insert(self, filename, size, storage_id, user_id):
         function_name = "Photo.insert"
         self.logger.debug(f"{function_name} called for filename: {filename}, size: {size}, storage{storage_id}, user_id: {user_id}")
         self.reconnect()
-
-
+        self.cursor.execute("INSERT INTO `photos` (filename, size, storage_id, user_id) VALUES (%s, %s, %s, %s);"
+                            , (filename, size, storage_id, user_id))
+        return self.cursor.lastrowid
 
 
 
