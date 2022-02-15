@@ -8,7 +8,6 @@ from mysql.connector import MySQLConnection
 STORAGE_DEFAULT_SIZE = 256*1024*1024
 STORAGE_DEFAULT_TYPE = "local"
 
-# Models instead of general database class
 class Model:
     cnx: MySQLConnection = None
     cursor = None
