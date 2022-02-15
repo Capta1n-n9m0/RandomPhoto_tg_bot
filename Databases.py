@@ -3,24 +3,37 @@ import os
 import mysql.connector
 import logging
 
+from mysql.connector import MySQLConnection
+
 STORAGE_DEFAULT_SIZE = 256*1024*1024
 STORAGE_DEFAULT_TYPE = "local"
 
-
-class Database:
-    cnx = None
+# Models instead of general database class
+class Model:
+    cnx: MySQLConnection = None
     cursor = None
     n_tries = 0
     max_tries = 5
     logger = logging.getLogger(__name__)
+    config = {
+        "host":     os.environ['TGBOT_DB_HOST'],
+        "user":     os.environ['TGBOT_DB_USER'],
+        "password": os.environ['TGBOT_DB_PASS'],
+        "database": os.environ['TGBOT_DB_NAME'],
+    }
 
-    def __init__(self):
-        self.config = {
-            "host":         os.environ['TGBOT_DB_HOST'],
-            "user":         os.environ['TGBOT_DB_USER'],
-            "password":     os.environ['TGBOT_DB_PASS'],
-            "database":     os.environ['TGBOT_DB_NAME'],
-        }
+    def __init__(self, table=None):
+        self.table = table
+
+    @property
+    def is_connected(self):
+        if self.cnx is None or self.cursor is None:
+            return False
+        return self.cnx.is_connected()
+
+    def reconnect(self):
+        if not self.is_connected:
+            self.connect()
 
     def connect(self):
         try:
@@ -41,68 +54,90 @@ class Database:
                     "Failed to connect after {} tries.".format(self.max_tries))
                 raise err
 
-    def if_user_exists(self, tg_id):
-        self.logger.debug(f"if_user_exists called for {tg_id}")
-        if not self.cnx.is_connected():
-            self.connect()
-        self.cursor.execute("SELECT * FROM `users` WHERE tg_id = %s;", (tg_id,))
-        return self.cursor.rowcount > 0
+    def close(self):
+        self.cursor.close()
+        self.cnx.close()
 
-    def get_user_by_id(self, user_id):
-        self.logger.debug(f"get_user_by_id called for {user_id}")
-        if not self.cnx.is_connected():
-            self.connect()
+
+class User(Model):
+    def __init__(self):
+        super().__init__("users")
+
+    def select_by_user_id(self, user_id):
+        function_name = "User.select_by_user_id"
+        self.logger.debug(f"{function_name} called for {user_id}")
+        self.reconnect()
         self.cursor.execute("SELECT * FROM `users` WHERE id = %s;", (user_id,))
-        return self.cursor.fetchone()
+        return self.cursor.fetchall()
 
-    def get_user_by_tg_id(self, tg_id):
-        self.logger.debug(f"get_user_by_tg_id called for {tg_id}")
-        if not self.cnx.is_connected():
-            self.connect()
+    def select_by_tg_id(self, tg_id):
+        function_name = "User.select_by_tg_id"
+        self.logger.debug(f"{function_name} for {tg_id}")
+        self.reconnect()
         self.cursor.execute("SELECT * FROM `users` WHERE tg_id = %s;", (tg_id,))
-        return self.cursor.fetchone()
+        return self.cursor.fetchall()
 
-    def get_user_count(self):
-        self.logger.debug(f"get_user_count called")
-        if not self.cnx.is_connected():
-            self.connect()
+    def count(self):
+        function_name = "User.count"
+        self.logger.debug(f"{function_name} called")
+        self.reconnect()
+        self.cursor.execute("SELECT * FROM `users`;")
         return self.cursor.rowcount
 
-    def add_user(self, tg_id):
-        self.logger.debug(f"add_user called {tg_id}")
-        if not self.cnx.is_connected():
-            self.connect()
-        self.cursor.execute("INSERT INTO `users` (tg_id) VALUES (%s);", (tg_id,))
+    def insert(self, tg_id):
+        function_name = "User.insert"
+        self.logger.debug(f"{function_name} called for {tg_id}")
+        self.reconnect()
+        self.cursor("INSERT INTO `users` (tg_id) VALUES (%s)", (tg_id,))
         return self.cursor.lastrowid
 
-    def add_storage(self, user_id, path, type=STORAGE_DEFAULT_TYPE, size=STORAGE_DEFAULT_SIZE):
-        if not self.cnx.is_connected():
-            self.connect()
-        self.logger.debug(f"add_storage called user:{user_id}, path: {path}, type: {type}, size: {size}")
-        query = "INSERT INTO `storages` (type, path, size, used_space, user_id) VALUES (%s, %s, %s, %s, %s);"
-        self.cursor.execute(query, (type, path, size, 0, user_id,))
+
+class Storage(Model):
+    def __init__(self):
+        super().__init__("storages")
+
+    def select_by_storage_id(self, storage_id):
+        function_name = "Storage.select_by_storage_id"
+        self.logger.debug(f"{function_name} called for {storage_id}")
+        self.reconnect()
+        self.cursor.execute("SELECT * FROM `storages` WHERE storage_id = %s;", (storage_id,))
+        return self.cursor.fetchall()
+
+    def select_by_user_id(self, user_id):
+        function_name = "Storage.select_by_user_id"
+        self.logger.debug(f"{function_name} called for {user_id}")
+        self.reconnect()
+        self.cursor.execute("SELECT * FROM `storages` WHERE user_id = %s;", (user_id,))
+        return self.cursor.fetchall()
+
+    def insert(self, user_id, path, type=STORAGE_DEFAULT_TYPE, size=STORAGE_DEFAULT_SIZE):
+        function_name = "Storage.insert"
+        self.logger.debug(f"{function_name} called for user:{user_id}, path:{path}, type: {type}, size:{size}")
+        self.reconnect()
+        self.cursor.execute("INSERT INTO `storages` (user_id, path, type, size, used_space) VALUES (%s, %s, %s, %s, %s);",
+                            (user_id, path, type, size, 0))
         return self.cursor.lastrowid
 
-    def get_storage_by_id(self, ):
-        if not self.cnx.is_connected():
-            self.connect()
-        self.logger.debug(f"get_storage_by_id")
-
-    def add_photo(self, owner_id, storage_id, filename, size):
-        if not self.cnx.is_connected():
-            self.connect()
-        self.logger.debug(f"add_photo called owner:{owner_id}, storage:{storage_id}, filename:{filename}, size:{size}")
-        photo_query = "INSERT INTO `photos` (storage_id, filename, size, owner_id) VALUES (%s, %s, %s, %s);"
-        storage_query = "UPDATE `storages` SET used_space = %s WHERE id = %s;"
-        self.cursor.execute(photo_query, (storage_id, filename, size, owner_id,))
+    def update_size_by_id(self, storage_id, used_size):
+        function_name = "Storage.update_size_by_id"
+        self.logger.debug(f"{function_name} called for storage_id:{storage_id}, used_size:{used_size}")
+        self.reconnect()
+        self.cursor("UPDATE `storages` SET used_space = %s WHERE storage_id = %s;", (used_size, storage_id))
 
 
+class Photo(Model):
+    def __init__(self):
+        super().__init__("photos")
 
+    def select_by_user_id(self, user_id):
+        function_name = "Photo.select_by_user_id"
+        self.logger.debug(f"{function_name} called for {user_id}")
+        self.reconnect()
 
-
-
-
-
+    def insert(self, filename, size, storage_id, user_id):
+        function_name = "Photo.insert"
+        self.logger.debug(f"{function_name} called for filename: {filename}, size: {size}, storage{storage_id}, user_id: {user_id}")
+        self.reconnect()
 
 
 
