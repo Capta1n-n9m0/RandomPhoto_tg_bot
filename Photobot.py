@@ -37,7 +37,6 @@ PHOTOS_FOLDER = ROOT_FOLDER / "photos"
 ACCOUNT_MAX_NUMBER = 40
 
 STORAGE_DEFAULT_TYPE = "local"
-STORAGE_DEFAULT_SIZE = 256*1024*1024
 
 class Photobot:
     def __init__(self):
@@ -93,7 +92,7 @@ class Photobot:
         temp = self.user.select_by_tg_id(tg_id)
         if len(temp) == 0:
             if self.user.count() < ACCOUNT_MAX_NUMBER:
-                user_id = self.user.insert(tg_id)[0]["user_id"]
+                user_id = self.user.insert(tg_id)
                 storage_name = f"{uuid4()}"
                 storage_fullpath = PHOTOS_FOLDER / f"{storage_name}"
                 os.mkdir(f"{storage_fullpath}")
@@ -126,7 +125,7 @@ class Photobot:
     def photo_saver(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         self.logger.debug(f"photo_saver called; user: {tg_id}")
-        user_data = self.user.select_by_tg_id(tg_id)[0]
+        user_data = self.user.select_by_tg_id(tg_id)
         if len(user_data) == 0:
             text = "Sorry, you can't upload any photos, because you don't have an account!"
             context.bot.send_message(chat_id=update.effective_chat.id, text=text)
@@ -134,6 +133,7 @@ class Photobot:
             context.bot.send_message(chat_id=update.effective_chat.id, text=text)
             self.logger.warning(f"user {tg_id} failed uploading photo")
         else:
+            user_data = user_data[0]
             user_id = user_data["user_id"]
             storage_data = self.storage.select_by_user_id(user_id)[0]
             size = storage_data["size"]
@@ -146,9 +146,10 @@ class Photobot:
                     photo = update.message.photo[len(update.message.photo) - 1]
                     photo_size = photo.file_size
                     filename = f"{uuid4()}.png"
+                    self.logger.info(f"File sent. id:{photo.file_id}, uid:{photo.file_unique_id}, size:{photo.file_size}, new_name:{filename}")
                     filepath = PHOTOS_FOLDER / storage / filename
                     photo.get_file(timeout=2).download(custom_path=filepath)
-                    self.photo.insert(filename, size, storage_id, user_id)
+                    self.photo.insert(filename, photo_size, storage_id, user_id)
                     self.logger.info(f"File downloaded to {filepath} from {tg_id}")
                     self.storage.update_size_by_id(storage_id, used_space + photo_size)
                     text = "Photo uploaded!"
@@ -166,7 +167,7 @@ class Photobot:
 
     def random_photo(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
-        self.logger.debug(f"photo_saver called; user: {tg_id}")
+        self.logger.debug(f"random_photo called; user: {tg_id}")
         user_data = self.user.select_by_tg_id(tg_id)
         if len(user_data) == 0:
             text = "Sorry, you can't call /random, because you don't have an account!"

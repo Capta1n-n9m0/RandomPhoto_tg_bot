@@ -14,6 +14,7 @@ class Model:
     n_tries = 0
     max_tries = 5
     logger = logging.getLogger(__name__)
+    logger.setLevel("DEBUG")
     config = {
         "host":     os.environ['TGBOT_DB_HOST'],
         "user":     os.environ['TGBOT_DB_USER'],
@@ -62,32 +63,32 @@ class User(Model):
     def __init__(self):
         super().__init__("users")
 
-    def select_by_user_id(self, user_id):
+    def select_by_user_id(self, user_id) -> list[dict]:
         function_name = "User.select_by_user_id"
         self.logger.debug(f"{function_name} called for {user_id}")
         self.reconnect()
         self.cursor.execute("SELECT * FROM `users` WHERE user_id = %s;", (user_id,))
         return self.cursor.fetchall()
 
-    def select_by_tg_id(self, tg_id):
+    def select_by_tg_id(self, tg_id) -> list[dict]:
         function_name = "User.select_by_tg_id"
         self.logger.debug(f"{function_name} for {tg_id}")
         self.reconnect()
         self.cursor.execute("SELECT * FROM `users` WHERE tg_id = %s;", (tg_id,))
         return self.cursor.fetchall()
 
-    def count(self):
+    def count(self) -> int:
         function_name = "User.count"
         self.logger.debug(f"{function_name} called")
         self.reconnect()
         self.cursor.execute("SELECT * FROM `users`;")
         return self.cursor.rowcount
 
-    def insert(self, tg_id):
+    def insert(self, tg_id) -> int:
         function_name = "User.insert"
         self.logger.debug(f"{function_name} called for {tg_id}")
         self.reconnect()
-        self.cursor("INSERT INTO `users` (tg_id) VALUES (%s)", (tg_id,))
+        self.cursor.execute("INSERT INTO `users` (tg_id) VALUES (%s)", (tg_id,))
         return self.cursor.lastrowid
 
 
@@ -95,21 +96,21 @@ class Storage(Model):
     def __init__(self):
         super().__init__("storages")
 
-    def select_by_storage_id(self, storage_id):
+    def select_by_storage_id(self, storage_id) -> list[dict]:
         function_name = "Storage.select_by_storage_id"
         self.logger.debug(f"{function_name} called for {storage_id}")
         self.reconnect()
         self.cursor.execute("SELECT * FROM `storages` WHERE storage_id = %s;", (storage_id,))
         return self.cursor.fetchall()
 
-    def select_by_user_id(self, user_id):
+    def select_by_user_id(self, user_id) -> list[dict]:
         function_name = "Storage.select_by_user_id"
         self.logger.debug(f"{function_name} called for {user_id}")
         self.reconnect()
         self.cursor.execute("SELECT * FROM `storages` WHERE user_id = %s;", (user_id,))
         return self.cursor.fetchall()
 
-    def insert(self, user_id, path, type=STORAGE_DEFAULT_TYPE, size=STORAGE_DEFAULT_SIZE):
+    def insert(self, user_id, path, type=STORAGE_DEFAULT_TYPE, size=STORAGE_DEFAULT_SIZE) -> int:
         function_name = "Storage.insert"
         self.logger.debug(f"{function_name} called for user:{user_id}, path:{path}, type: {type}, size:{size}")
         self.reconnect()
@@ -117,7 +118,7 @@ class Storage(Model):
                             (user_id, path, type, size, 0))
         return self.cursor.lastrowid
 
-    def update_size_by_id(self, storage_id, used_size):
+    def update_size_by_id(self, storage_id, used_size) -> int:
         function_name = "Storage.update_size_by_id"
         self.logger.debug(f"{function_name} called for storage_id:{storage_id}, used_size:{used_size}")
         self.reconnect()
@@ -129,14 +130,14 @@ class Photo(Model):
     def __init__(self):
         super().__init__("photos")
 
-    def select_by_user_id(self, user_id):
+    def select_by_user_id(self, user_id) -> list[dict]:
         function_name = "Photo.select_by_user_id"
         self.logger.debug(f"{function_name} called for {user_id}")
         self.reconnect()
         self.cursor.execute("SELECT * FROM `photos` WHERE user_id = %s", (user_id,))
         return self.cursor.fetchall()
 
-    def insert(self, filename, size, storage_id, user_id):
+    def insert(self, filename, size, storage_id, user_id) -> int:
         function_name = "Photo.insert"
         self.logger.debug(f"{function_name} called for filename: {filename}, size: {size}, storage{storage_id}, user_id: {user_id}")
         self.reconnect()
