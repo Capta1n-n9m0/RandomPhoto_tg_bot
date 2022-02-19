@@ -168,7 +168,7 @@ class Photobot:
                         self.user_sessions[tg_id] = {}
                         self.user_sessions[tg_id]["photos"] = 0
                         self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
-                        self.user_sessions[tg_id]["first_foto"] = time.time()
+                        self.user_sessions[tg_id]["first_photo"] = time.time()
                         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
                     self.user_sessions[tg_id]["timestamp"] = time.time()
                     self.user_sessions[tg_id]["photos"] += 1
