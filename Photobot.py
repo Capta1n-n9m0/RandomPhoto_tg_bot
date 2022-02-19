@@ -67,7 +67,7 @@ class Photobot:
         self.random_handler = CommandHandler('random', self.random_photo)
         self.updater.dispatcher.add_handler(self.random_handler)
 
-        self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=10, first=1)
+        self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=5, first=1)
 
         self.user = Databases.User()
         self.storage = Databases.Storage()
@@ -78,7 +78,7 @@ class Photobot:
     def cleaner(self, context: telegram.ext.CallbackContext):
         t = time.time()
         for ids in self.user_sessions.keys():
-            if (delta := t - int(self.user_sessions[ids]["timestamp"])) >= 10:
+            if (delta := int(t - self.user_sessions[ids]["timestamp"])) >= 10:
                 chat = self.user_sessions[ids]["chat_id"]
                 photos = self.user_sessions[ids]["photos"]
                 text = f"Transmission ended after {delta} seconds! {photos} received!"
@@ -161,6 +161,14 @@ class Photobot:
             if used_space < size:
                 storage_type = storage_data["type"]
                 if storage_type == "local":
+                    if self.user_sessions.get(tg_id, None) is None:
+                        text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
+                        self.user_sessions[tg_id] = {}
+                        self.user_sessions[tg_id]["photos"] = 1
+                        self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
+                        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+                    self.user_sessions[tg_id]["timestamp"] = time.time()
+                    self.user_sessions[tg_id]["photos"] += 1
                     storage_id = storage_data["storage_id"]
                     storage = storage_data["path"]
                     photo = update.message.photo[len(update.message.photo) - 1]
@@ -172,14 +180,6 @@ class Photobot:
                     self.photo.insert(filename, photo_size, storage_id, user_id)
                     self.logger.info(f"File downloaded to {filepath} from {tg_id}")
                     self.storage.update_size_by_id(storage_id, used_space + photo_size)
-                    if self.user_sessions.get(tg_id, None) is None:
-                        text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
-                        self.user_sessions[tg_id] = {}
-                        self.user_sessions[tg_id]["photos"] = 1
-                        self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
-                        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-                    self.user_sessions[tg_id]["timestamp"] = time.time()
-                    self.user_sessions[tg_id]["photos"] += 1
                 else:
                     self.logger.warning(f"Wrong storage type: {storage_type}, storage_id: {storage_data[0]}")
                     text = "Failed to upload photo. Contact alievabbas1@gmail.com"
