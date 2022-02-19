@@ -78,7 +78,7 @@ class Photobot:
     def cleaner(self, context: telegram.ext.CallbackContext):
         t = time.time()
         for ids in self.user_sessions.keys():
-            if (delta := int(self.user_sessions[ids]["timestamp"]) - t) >= 10:
+            if (delta := t - int(self.user_sessions[ids]["timestamp"])) >= 10:
                 chat = self.user_sessions[ids]["chat_id"]
                 photos = self.user_sessions[ids]["photos"]
                 text = f"Transmission ended after {delta} seconds! {photos} received!"
