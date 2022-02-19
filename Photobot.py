@@ -20,10 +20,6 @@ import random
 
 import Databases
 
-import threading as th
-
-
-LOCK = threading.Lock()
 LOG_BASE_FORMAT = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  <%(name)s>  %(message)s")
 LOG_ROOT_LOGGER = logging.getLogger(__name__)
 LOG_FILE_LOGGER = logging.handlers.RotatingFileHandler("telegram.log", mode='a', maxBytes=10*1024*1024, backupCount=10, encoding='UTF-8')
@@ -81,7 +77,6 @@ class Photobot:
         self.logger.info("Telegram bot has started")
 
     def cleaner(self, context: telegram.ext.CallbackContext):
-        LOCK.acquire()
         t = time.time()
         for ids in self.user_sessions.keys():
             if (delta := int(t - self.user_sessions[ids]["timestamp"])) >= 10:
@@ -90,7 +85,7 @@ class Photobot:
                 text = f"Transmission ended after {delta} seconds! {photos} received!"
                 context.bot.send_message(chat_id=chat, text=text)
                 del self.user_sessions[ids]
-        LOCK.release()
+                break
 
 
     def start(self, update: Update, context: CallbackContext):
@@ -168,7 +163,6 @@ class Photobot:
             if used_space < size:
                 storage_type = storage_data["type"]
                 if storage_type == "local":
-                    LOCK.acquire()
                     if self.user_sessions.get(tg_id, None) is None:
                         text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
                         self.user_sessions[tg_id] = {}
@@ -177,7 +171,6 @@ class Photobot:
                         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
                     self.user_sessions[tg_id]["timestamp"] = time.time()
                     self.user_sessions[tg_id]["photos"] += 1
-                    LOCK.release()
                     storage_id = storage_data["storage_id"]
                     storage = storage_data["path"]
                     photo = update.message.photo[len(update.message.photo) - 1]
