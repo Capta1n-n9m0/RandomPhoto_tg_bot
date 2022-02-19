@@ -220,7 +220,7 @@ class Photobot:
     def run(self):
         self.updater.start_polling()
         self.updater.idle()
-        #self.jobs.start()
+        self.jobs.start()
 
 
 
