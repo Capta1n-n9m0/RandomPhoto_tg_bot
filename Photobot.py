@@ -164,7 +164,7 @@ class Photobot:
                     if self.user_sessions.get(tg_id, None) is None:
                         text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
                         self.user_sessions[tg_id] = {}
-                        self.user_sessions[tg_id]["photos"] = 1
+                        self.user_sessions[tg_id]["photos"] = 0
                         self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
                         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
                     self.user_sessions[tg_id]["timestamp"] = time.time()
