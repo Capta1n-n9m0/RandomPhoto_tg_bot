@@ -79,7 +79,7 @@ class Photobot:
         t = time.time()
         for ids in self.user_sessions.keys():
             if (delta := int(self.user_sessions[ids]["timestamp"]) - t) >= 10:
-                chat = self.user_sessions[ids]["chat"]
+                chat = self.user_sessions[ids]["chat_id"]
                 photos = self.user_sessions[ids]["photos"]
                 text = f"Transmission ended after {delta} seconds! {photos} received!"
                 context.bot.send_message(chat_id=chat, text=text)
@@ -220,6 +220,7 @@ class Photobot:
     def run(self):
         self.updater.start_polling()
         self.updater.idle()
+        #self.jobs.start()
 
 
 
