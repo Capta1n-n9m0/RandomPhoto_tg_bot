@@ -1,5 +1,7 @@
 import os
+import time
 
+import telegram.ext
 from telegram.ext import Updater, Dispatcher
 from telegram import Update
 from telegram.ext import CallbackContext
@@ -38,11 +40,14 @@ ACCOUNT_MAX_NUMBER = 40
 
 STORAGE_DEFAULT_TYPE = "local"
 
+USER_SESSIONS = {}
+
 class Photobot:
     def __init__(self):
         self.logger = LOG_ROOT_LOGGER
         self.updater = Updater(token=HTTP_API_KEY, use_context=True)
         self.dispatcher: Dispatcher = self.updater.dispatcher
+        self.jobs: telegram.ext.JobQueue = self.updater.job_queue
 
         self.start_handler = CommandHandler('start', self.start)
         self.updater.dispatcher.add_handler(self.start_handler)
@@ -62,11 +67,25 @@ class Photobot:
         self.random_handler = CommandHandler('random', self.random_photo)
         self.updater.dispatcher.add_handler(self.random_handler)
 
+
+        self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=10, first=1)
+
         self.user = Databases.User()
         self.storage = Databases.Storage()
         self.photo = Databases.Photo()
 
         self.logger.info("Telegram bot has started")
+
+    def cleaner(self, context: telegram.ext.CallbackContext):
+        t = time.time()
+        for ids in USER_SESSIONS.keys():
+            if (delta := int(USER_SESSIONS[ids]["timestamp"]) - t) >= 10:
+                chat = USER_SESSIONS[ids]["chat"]
+                photos = USER_SESSIONS[ids]["photos"]
+                text = f"Transmission ended after {delta} seconds! {photos} received!"
+                context.bot.send_message(chat_id=chat, text=text)
+                del USER_SESSIONS[ids]
+
 
     def start(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
@@ -122,6 +141,8 @@ class Photobot:
         print("caps called")
         context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
 
+
+
     def photo_saver(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         self.logger.debug(f"photo_saver called; user: {tg_id}")
@@ -152,8 +173,14 @@ class Photobot:
                     self.photo.insert(filename, photo_size, storage_id, user_id)
                     self.logger.info(f"File downloaded to {filepath} from {tg_id}")
                     self.storage.update_size_by_id(storage_id, used_space + photo_size)
-                    text = "Photo uploaded!"
-                    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+                    if USER_SESSIONS.get(tg_id, None) is None:
+                        text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
+                        USER_SESSIONS[tg_id] = {}
+                        USER_SESSIONS[tg_id]["photos"] = 1
+                        USER_SESSIONS[tg_id]["chat_id"] = update.effective_chat.id
+                        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+                    USER_SESSIONS[tg_id]["timestamp"] = time.time()
+                    USER_SESSIONS[tg_id]["photos"] += 1
                 else:
                     self.logger.warning(f"Wrong storage type: {storage_type}, storage_id: {storage_data[0]}")
                     text = "Failed to upload photo. Contact alievabbas1@gmail.com"
