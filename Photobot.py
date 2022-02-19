@@ -52,22 +52,25 @@ class Photobot:
         self.jobs: telegram.ext.JobQueue = self.updater.job_queue
 
         self.start_handler = CommandHandler('start', self.start)
-        self.updater.dispatcher.add_handler(self.start_handler)
+        self.dispatcher.add_handler(self.start_handler)
 
         self.register_handler = CommandHandler('register', self.register)
-        self.updater.dispatcher.add_handler(self.register_handler)
+        self.dispatcher.add_handler(self.register_handler)
 
         self.echo_handler = MessageHandler(Filters.text & (~Filters.command), self.echo)
-        self.updater.dispatcher.add_handler(self.echo_handler)
+        self.dispatcher.add_handler(self.echo_handler)
 
         self.caps_handler = CommandHandler('caps', self.caps)
-        self.updater.dispatcher.add_handler(self.caps_handler)
+        self.dispatcher.add_handler(self.caps_handler)
 
         self.photo_handler = MessageHandler(Filters.photo, self.photo_saver)
-        self.updater.dispatcher.add_handler(self.photo_handler)
+        self.dispatcher.add_handler(self.photo_handler)
 
         self.random_handler = CommandHandler('random', self.random_photo)
-        self.updater.dispatcher.add_handler(self.random_handler)
+        self.dispatcher.add_handler(self.random_handler)
+
+        self.statistics_handler = CommandHandler('stats', self.statistics)
+        self.dispatcher.add_handler(self.statistics_handler)
 
         self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=5, first=1)
 
