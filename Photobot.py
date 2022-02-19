@@ -82,7 +82,7 @@ class Photobot:
             if (delta := int(t - self.user_sessions[ids]["timestamp"])) >= 10:
                 chat = self.user_sessions[ids]["chat_id"]
                 photos = self.user_sessions[ids]["photos"]
-                text = f"Transmission ended after {delta} seconds! {photos} received!"
+                text = f"Transmission ended after {round(t - self.user_sessions[ids]['first_photo'], 2)} seconds! {photos} received!"
                 context.bot.send_message(chat_id=chat, text=text)
                 del self.user_sessions[ids]
                 break
@@ -168,6 +168,7 @@ class Photobot:
                         self.user_sessions[tg_id] = {}
                         self.user_sessions[tg_id]["photos"] = 0
                         self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
+                        self.user_sessions[tg_id]["first_foto"] = time.time()
                         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
                     self.user_sessions[tg_id]["timestamp"] = time.time()
                     self.user_sessions[tg_id]["photos"] += 1
