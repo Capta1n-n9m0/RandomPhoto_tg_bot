@@ -197,7 +197,7 @@ class Photo(Model):
         query = "SELECT * FROM `photos` WHERE user_id = %s;"
         arguments = (user_id,)
         self.cursor.execute(query, arguments)
-        self.rowcount = self.rowcount
+        self.rowcount = self.cursor.rowcount
         return self.rowcount
 
 
