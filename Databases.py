@@ -31,7 +31,7 @@ class Model:
 
     def __init__(self, table=None):
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel("DEBUG")
+        self.logger.setLevel(logging.DEBUG)
         self.table = table
 
     @property
@@ -190,14 +190,27 @@ class Photo(Model):
         self.data = self.cursor.fetchall()
         return self.data
 
-    def insert(self, filename, size, storage_id, user_id, hash = None) -> int:
+    def count_by_user_id(self, user_id) -> int:
+        function_name = "Photo.count_by_user_id"
+        self.logger.debug(f"{function_name} called for {user_id}")
+        self.reconnect()
+        query = "SELECT * FROM `photos` WHERE user_id = %s;"
+        arguments = (user_id,)
+        self.cursor.execute(query, arguments)
+        self.rowcount = self.rowcount
+        return self.rowcount
+
+
+    def insert(self, filename, size, storage_id, user_id, hash=None) -> int:
         function_name = "Photo.insert"
         self.logger.debug(f"{function_name} called for filename: {filename}, size: {size}, storage{storage_id}, user_id: {user_id}")
         self.reconnect()
-        query = "INSERT INTO `photos` (filename, size, storage_id, user_id) VALUES (%s, %s, %s, %s);"
-        arguments = (filename, size, storage_id, user_id)
+        upload_date = datetime.datetime.now()
+        query = "INSERT INTO `photos` (filename, size, storage_id, user_id, hash, upload_date) VALUES (%s, %s, %s, %s, %s, %s);"
+        arguments = (filename, size, storage_id, user_id, hash, upload_date)
         self.cursor.execute(query, arguments)
         return self.cursor.lastrowid
+
 
 
 

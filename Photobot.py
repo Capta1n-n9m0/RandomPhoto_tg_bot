@@ -19,18 +19,19 @@ import logging.handlers
 import random
 
 import Databases
+import hashlib
 
 LOG_BASE_FORMAT = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  <%(name)s>  %(message)s")
 LOG_ROOT_LOGGER = logging.getLogger(__name__)
 LOG_FILE_LOGGER = logging.handlers.RotatingFileHandler("telegram.log", mode='a', maxBytes=10*1024*1024, backupCount=10, encoding='UTF-8')
 LOG_FILE_LOGGER.setFormatter(LOG_BASE_FORMAT)
-LOG_FILE_LOGGER.setLevel("INFO")
+LOG_FILE_LOGGER.setLevel(logging.INFO)
 LOG_ROOT_LOGGER.addHandler(LOG_FILE_LOGGER)
 LOG_CONSOLE_LOGGER = logging.StreamHandler()
 LOG_CONSOLE_LOGGER.setFormatter(LOG_BASE_FORMAT)
-LOG_CONSOLE_LOGGER.setLevel("DEBUG")
+LOG_CONSOLE_LOGGER.setLevel(logging.DEBUG)
 LOG_ROOT_LOGGER.addHandler(LOG_CONSOLE_LOGGER)
-LOG_ROOT_LOGGER.setLevel("DEBUG")
+LOG_ROOT_LOGGER.setLevel(logging.INFO)
 
 HTTP_API_KEY = os.environ['TGBOT_API_KEY']
 
@@ -180,7 +181,11 @@ class Photobot:
                     self.logger.info(f"File sent. id:{photo.file_id}, uid:{photo.file_unique_id}, size:{photo.file_size}, new_name:{filename}")
                     filepath = PHOTOS_FOLDER / storage / filename
                     photo.get_file(timeout=2).download(custom_path=filepath)
-                    self.photo.insert(filename, photo_size, storage_id, user_id)
+                    sha = hashlib.sha256()
+                    with open(filepath, "rb") as f:
+                        while data := f.read(1024*8):
+                            sha.update(data)
+                    self.photo.insert(filename, photo_size, storage_id, user_id, f"{sha.hexdigest()}")
                     self.logger.info(f"File downloaded to {filepath} from {tg_id}")
                     self.storage.update_size_by_id(storage_id, used_space + photo_size)
                 else:
@@ -219,6 +224,23 @@ class Photobot:
                 with open(full_photo_path, "rb") as f:
                     context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
                 self.logger.info(f"Photo {full_photo_path} send to user {tg_id}")
+
+    def statistics(self, update: Update, context: CallbackContext):
+        tg_id = update.effective_user.id
+        self.logger.debug(f"statistics called for user {tg_id}")
+        user_data = self.user.select_by_tg_id(tg_id)[0]
+        storage_data = self.storage.select_by_user_id(user_data["user_id"])[0]
+        n_photos = self.photo.count_by_user_id(user_data["user_id"])
+        used_space_mb = (storage_data["used_space"] / 1024) / 1024
+        total_space_mb = (storage_data["size"] / 1024) / 1024
+        text = f"You have {n_photos} photos!"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+        text = f"You have used {used_space_mb:3.4f}MB / {total_space_mb:3.4f}MB"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+
+
+
+
 
     def run(self):
         self.updater.start_polling()
