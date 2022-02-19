@@ -67,7 +67,7 @@ class Photobot:
         self.random_handler = CommandHandler('random', self.random_photo)
         self.updater.dispatcher.add_handler(self.random_handler)
 
-
+        self.cleaner_handler = CommandHandler(self.cleaner, )
         self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=10, first=1)
 
         self.user = Databases.User()
@@ -220,6 +220,7 @@ class Photobot:
 
     def run(self):
         self.updater.start_polling()
+        self.updater.idle()
 
 
 
