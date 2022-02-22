@@ -18,10 +18,10 @@ CONFIG = {
 }
 
 ENGINE = create_engine("mysql://%s:%s(%s):3306/%s" %
-                       (CONFIG["user"], CONFIG["password"], CONFIG["host"], CONFIG["database"]))
+                       (CONFIG["user"], CONFIG["password"], CONFIG["host"], CONFIG["database"]),
+                       echo=True)
 
-SESSION = sessionmaker(bind=ENGINE, autoflush=True, autocommit=True)
-
+SESSION = sqla_orm.Session(binds=ENGINE, autoflush=True, autocommit=True)
 
 class User(Base):
     __tablename__ = "users"

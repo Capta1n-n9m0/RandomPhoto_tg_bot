@@ -1,3 +1,4 @@
+import datetime
 import os
 import threading
 import time
@@ -19,6 +20,7 @@ import logging.handlers
 import random
 
 import Databases
+import AlchemyDatabases as adb
 import hashlib
 
 LOG_BASE_FORMAT = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  <%(name)s>  %(message)s")
@@ -78,6 +80,8 @@ class Photobot:
         self.storage = Databases.Storage()
         self.photo = Databases.Photo()
 
+        self.sql_session = adb.SESSION
+
         self.logger.info("Telegram bot has started")
 
     def cleaner(self, context: telegram.ext.CallbackContext):
@@ -108,6 +112,36 @@ class Photobot:
             text = "Run /register to registrate. You will get 256MB of storage for your photos!"
             context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
+    def start_(self, update: Update, context: CallbackContext):
+        tg_id = update.effective_user.id
+        username = update.effective_user.username
+        first_name = update.effective_user.first_name
+        last_name = update.effective_user.last_name
+        chat_id = update.effective_chat.id
+        self.logger.debug(f"start called; user: {tg_id}")
+        text = "Hello, i am a Random Photo Bot! I can select random photo, from photos provided!"
+        context.bot.send_message(chat_id=chat_id, text=text)
+        text = "You will have small storage of 256MB for you photos."
+        context.bot.send_message(chat_id=chat_id, text=text)
+        user: adb.User = self.sql_session.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+        if user is None:
+            first_seen_date = datetime.datetime.now()
+            user = adb.User(tg_id=tg_id, username=username, first_name=first_name, last_name=last_name, first_seen_date=first_seen_date, last_seen_date=first_seen_date, is_registered=False)
+            self.sql_session.add(user)
+            text = "Welcome! Looks like you are not registered yet."
+            context.bot.send_message(chat_id=chat_id, text=text)
+            text = "Run /register to registrate. You will get 256MB of storage for your photos!"
+            context.bot.send_message(chat_id=chat_id, text=text)
+        elif user.is_registered:
+            text = "Welcome! You can run /random to get a random photo from your storage or load more photos."
+            context.bot.send_message(chat_id=chat_id, text=text)
+        else:
+            text = "Welcome! Looks like you are not registered yet."
+            context.bot.send_message(chat_id=chat_id, text=text)
+            text = "Run /register to registrate. You will get 256MB of storage for your photos!"
+            context.bot.send_message(chat_id=chat_id, text=text)
+
+
     def register(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         self.logger.debug(f"register called; user: {tg_id}")
@@ -131,6 +165,21 @@ class Photobot:
         else:
             text = "Looks like you already have registered! You can upload photos or run /random command!"
             context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+
+    def register_(self, update: Update, context: CallbackContext):
+        tg_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        self.logger.debug(f"register called; user: {tg_id}")
+        text = "Welcome! Now we will try to create an account for you!"
+        context.bot.send_message(chat_id=chat_id, text=text)
+        user: adb.User = self.sql_session.query(adb.User).filter(adb.User.tg_id==tg_id).first()
+        if user is None:
+            user = adb.User(tg_id=tg_id)
+        elif user.is_registered:
+            ...
+        else:
+            ...
+
 
 
     def echo(self, update: Update, context: CallbackContext):
