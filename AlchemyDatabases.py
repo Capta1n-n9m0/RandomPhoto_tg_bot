@@ -102,7 +102,7 @@ class Photo(Base):
         return res
 
 
-Base.metadata.create_all(ENGINE)
+Base.metadata.create_all(bind=ENGINE)
 
-SESSION = sqla_orm.Session(binds=ENGINE, autoflush=True, autocommit=True)
+SESSION = sqla_orm.sessionmaker(binds=ENGINE, autoflush=True, autocommit=True)()
 
