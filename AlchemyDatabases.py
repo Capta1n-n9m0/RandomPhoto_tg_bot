@@ -8,8 +8,6 @@ import sqlalchemy.orm as sqla_orm
 import sqlalchemy as sqla
 
 
-Base = declarative_base()
-
 CONFIG = {
     "host": os.environ['TGBOT_DB_HOST'],
     "user": os.environ['TGBOT_DB_USER'],
@@ -21,8 +19,7 @@ ENGINE = create_engine("mysql://%s:%s@%s:3306/%s" %
                        (CONFIG["user"], CONFIG["password"], CONFIG["host"], CONFIG["database"]),
                        echo=True)
 
-SESSION = sqla_orm.sessionmaker(binds=ENGINE, autoflush=True, autocommit=True)
-
+Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
@@ -105,9 +102,7 @@ class Photo(Base):
         return res
 
 
+Base.metadata.create_all(ENGINE)
 
-
-
-
-
+SESSION = sqla_orm.sessionmaker(binds=ENGINE, autoflush=True, autocommit=True)
 
