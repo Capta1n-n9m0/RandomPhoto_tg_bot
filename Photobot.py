@@ -161,8 +161,10 @@ class Photobot:
         self.logger.debug(f"register called; user: {tg_id}")
         text = "Welcome! Now we will now try to create an account for you!"
         context.bot.send_message(chat_id=chat_id, text=text)
+        self.sql.begin()
         user: adb.User = self.sql.query(adb.User).filter(adb.User.tg_id == tg_id).first()
         n_users = self.sql.query(adb.User).count()
+        self.sql.commit()
         if user is None:
             if n_users < ACCOUNT_MAX_NUMBER:
                 try:
