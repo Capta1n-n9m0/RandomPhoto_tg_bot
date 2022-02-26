@@ -69,7 +69,7 @@ class Photobot:
         self.dispatcher.add_handler(self.start_handler)
         self.register_handler = CommandHandler('register', self.register)
         self.dispatcher.add_handler(self.register_handler)
-        self.photo_handler = MessageHandler(Filters.photo, self.photo_saver_)
+        self.photo_handler = MessageHandler(Filters.photo, self.photo_saver)
         self.dispatcher.add_handler(self.photo_handler)
         self.random_handler = CommandHandler('random', self.random_photo)
         self.dispatcher.add_handler(self.random_handler)
@@ -168,60 +168,6 @@ class Photobot:
         context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
 
     def photo_saver(self, update: Update, context: CallbackContext):
-        tg_id = update.effective_user.id
-        self.logger.debug(f"photo_saver called; user: {tg_id}")
-        user_data = self.user.select_by_tg_id(tg_id)
-        if len(user_data) == 0:
-            text = "Sorry, you can't upload any photos, because you don't have an account!"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            text = "Run /register to get an account!"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            self.logger.warning(f"user {tg_id} failed uploading photo")
-        else:
-            user_data = user_data[0]
-            user_id = user_data["user_id"]
-            storage_data = self.storage.select_by_user_id(user_id)[0]
-            size = storage_data["size"]
-            used_space = storage_data["used_space"]
-            if used_space < size:
-                storage_type = storage_data["type"]
-                if storage_type == "local":
-                    if self.user_sessions.get(tg_id, None) is None:
-                        text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
-                        self.user_sessions[tg_id] = {}
-                        self.user_sessions[tg_id]["photos"] = 0
-                        self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
-                        self.user_sessions[tg_id]["first_photo"] = time.time()
-                        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-                    self.user_sessions[tg_id]["timestamp"] = time.time()
-                    self.user_sessions[tg_id]["photos"] += 1
-                    storage_id = storage_data["storage_id"]
-                    storage = storage_data["path"]
-                    photo = update.message.photo[len(update.message.photo) - 1]
-                    photo_size = photo.file_size
-                    filename = f"{uuid4()}.png"
-                    self.logger.info(f"File sent. id:{photo.file_id}, uid:{photo.file_unique_id}, size:{photo.file_size}, new_name:{filename}")
-                    filepath = PHOTOS_FOLDER / storage / filename
-                    photo.get_file(timeout=2).download(custom_path=filepath)
-                    sha = hashlib.sha256()
-                    with open(filepath, "rb") as f:
-                        while data := f.read(1024*8):
-                            sha.update(data)
-                    self.photo.insert(filename, photo_size, storage_id, user_id, f"{sha.hexdigest()}")
-                    self.logger.info(f"File downloaded to {filepath} from {tg_id}")
-                    self.storage.update_size_by_id(storage_id, used_space + photo_size)
-                else:
-                    self.logger.warning(f"Wrong storage type: {storage_type}, storage_id: {storage_data[0]}")
-                    text = "Failed to upload photo. Contact alievabbas1@gmail.com"
-                    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
-            else:
-                text = "Sorry, you can't upload anymore photos, you are out of space!"
-                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-                text = "If you want to resize you storage or delete some photos, contact alievabbas1@gmail.com"
-                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
-    def photo_saver_(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         chat_id = update.effective_chat.id
         self.logger.debug(f"photo_saver called; user: {tg_id}")
