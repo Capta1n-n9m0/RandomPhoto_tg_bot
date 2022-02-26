@@ -56,12 +56,9 @@ class Photobot:
         self.user = Databases.User()
         self.storage = Databases.Storage()
         self.photo = Databases.Photo()
-
         self.sql = adb.SESSION
-
         # Jobs
         self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=5, first=1)
-
         # Basic handlers for testing and reference
         self.echo_handler = MessageHandler(Filters.text & (~Filters.command), self.echo)
         self.dispatcher.add_handler(self.echo_handler)
@@ -81,6 +78,8 @@ class Photobot:
         # Test handlers; undocumented commands
         self.TEST_start_handler = CommandHandler('start_test', self.start_)
         self.dispatcher.add_handler(self.TEST_start_handler)
+        self.TEST_register_handler = CommandHandler('register_test', self.register_)
+        self.dispatcher.add_handler(self.TEST_register_handler)
 
         self.logger.info("Telegram bot has started")
 
@@ -170,10 +169,18 @@ class Photobot:
                     user = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
                     self.sql.add(user)
                     self.logger.info(f"Created user record for {tg_id}")
-
-
+                    storage_name = f"{uuid4()}"
+                    storage_fullpath = PHOTOS_FOLDER / storage_name
+                    os.mkdir(f"{storage_fullpath}")
+                    storage = adb.Storage(path=storage_name, user_id=user.user_id)
+                    self.sql.add(storage)
+                    self.logger.info(f"Created storage {storage.storage_id} for user {user.user_id} tg_id {tg_id}")
+                    self.logger.info(f"user {tg_id} successfully registered")
+                    text = "Congratulations! Now you have a profile and 256MB of storage for your photos!"
+                    context.bot.send_message(chat_id=update.effective_chat.id, text=text)
                 except Exception as e:
                     # Cleaning sequence if registration failed
+                    # TODO: Create cleaning sequence
                     ...
             else:
                 logging.warning(f"user {tg_id} couldn't register: user limit reached")
