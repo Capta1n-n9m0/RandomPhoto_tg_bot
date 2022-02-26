@@ -102,5 +102,5 @@ class Photo(Base):
 
 Base.metadata.create_all(bind=ENGINE)
 
-SESSION = sqla_orm.sessionmaker(bind=ENGINE, autoflush=True, autocommit=True)()
+SESSION: sqla_orm.Session = sqla_orm.sessionmaker(bind=ENGINE, autoflush=True, autocommit=True)()
 

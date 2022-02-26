@@ -33,7 +33,7 @@ LOG_CONSOLE_LOGGER = logging.StreamHandler()
 LOG_CONSOLE_LOGGER.setFormatter(LOG_BASE_FORMAT)
 LOG_CONSOLE_LOGGER.setLevel(logging.DEBUG)
 LOG_ROOT_LOGGER.addHandler(LOG_CONSOLE_LOGGER)
-LOG_ROOT_LOGGER.setLevel(logging.INFO)
+LOG_ROOT_LOGGER.setLevel(logging.DEBUG)
 
 HTTP_API_KEY = os.environ['TGBOT_API_KEY']
 
@@ -168,12 +168,14 @@ class Photobot:
                 try:
                     user = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
                     self.sql.add(user)
+                    self.sql.commit()
                     self.logger.info(f"Created user record for {tg_id}")
                     storage_name = f"{uuid4()}"
                     storage_fullpath = PHOTOS_FOLDER / storage_name
                     os.mkdir(f"{storage_fullpath}")
                     storage = adb.Storage(path=storage_name, user_id=user.user_id)
                     self.sql.add(storage)
+                    self.sql.commit()
                     self.logger.info(f"Created storage {storage.storage_id} for user {user.user_id} tg_id {tg_id}")
                     self.logger.info(f"user {tg_id} successfully registered")
                     text = "Congratulations! Now you have a profile and 256MB of storage for your photos!"
