@@ -23,6 +23,7 @@ ENGINE = create_engine("mysql://%s:%s(%s):3306/%s" %
 
 SESSION = sqla_orm.Session(binds=ENGINE, autoflush=True, autocommit=True)
 
+
 class User(Base):
     __tablename__ = "users"
     user_id             = Column(Integer, primary_key=True)
@@ -36,6 +37,14 @@ class User(Base):
     is_registered       = Column(Boolean, nullable=True)
     photos              = relationship("Photo")
     storages            = relationship("Storage")
+
+    def __init__(self, tg_id, username, first_name, last_name=None):
+        self.tg_id = tg_id
+        self.username = username
+        self.first_name = first_name
+        self.last_name = last_name
+        self.registration_date = datetime.utcnow()
+        self.last_seen_date = datetime.utcnow()
 
     def __repr__(self):
         res = "<User(tg_id=%s, username=%s, first_name=%s, last_name=%s)>" % (
@@ -57,6 +66,15 @@ class Storage(Base):
     user_id             = Column(Integer, ForeignKey("users.user_id"))
     photos              = relationship("Photo")
 
+    def __init__(self, path, user_id, type="local", size=256*1024*1024):
+        self.path = path
+        self.type = type
+        self.size = size
+        self.used_space = 0
+        self.created_date = datetime.utcnow()
+        self.modified_date = datetime.utcnow()
+        self.user_id = user_id
+
     def __repr__(self):
         res = "<Storage(path=%s, type=%s, size=%s, used_space=%s)>" % (
             self.path, self.type, self.size, self.created_date)
@@ -73,10 +91,19 @@ class Photo(Base):
     storage_id          = Column(Integer, ForeignKey("storages.storage_id"))
     user_id             = Column(Integer, ForeignKey("users.user_id"))
 
+    def __init__(self, filename, size, hash, storage_id, user_id):
+        self.filename = filename
+        self.size = size
+        self.hash = hash
+        self.storage_id = storage_id
+        self.user_id = user_id
+        self.upload_date = datetime.utcnow()
+
     def __repr__(self):
         res = "<Photo(filename=%s, size=%s)>" % (
             self.filename, self.size)
         return res
+
 
 
 

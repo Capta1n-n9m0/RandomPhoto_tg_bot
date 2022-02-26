@@ -47,40 +47,40 @@ STORAGE_DEFAULT_TYPE = "local"
 
 class Photobot:
     def __init__(self):
+        # Presetting variables; could be moved to class definition
         self.user_sessions = {}
         self.logger = LOG_ROOT_LOGGER
         self.updater = Updater(token=HTTP_API_KEY, use_context=True)
         self.dispatcher: Dispatcher = self.updater.dispatcher
         self.jobs: telegram.ext.JobQueue = self.updater.job_queue
-
-        self.start_handler = CommandHandler('start', self.start)
-        self.dispatcher.add_handler(self.start_handler)
-
-        self.register_handler = CommandHandler('register', self.register)
-        self.dispatcher.add_handler(self.register_handler)
-
-        self.echo_handler = MessageHandler(Filters.text & (~Filters.command), self.echo)
-        self.dispatcher.add_handler(self.echo_handler)
-
-        self.caps_handler = CommandHandler('caps', self.caps)
-        self.dispatcher.add_handler(self.caps_handler)
-
-        self.photo_handler = MessageHandler(Filters.photo, self.photo_saver)
-        self.dispatcher.add_handler(self.photo_handler)
-
-        self.random_handler = CommandHandler('random', self.random_photo)
-        self.dispatcher.add_handler(self.random_handler)
-
-        self.statistics_handler = CommandHandler('stats', self.statistics)
-        self.dispatcher.add_handler(self.statistics_handler)
-
-        self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=5, first=1)
-
         self.user = Databases.User()
         self.storage = Databases.Storage()
         self.photo = Databases.Photo()
 
-        self.sql_session = adb.SESSION
+        self.sql = adb.SESSION
+
+        # Jobs
+        self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=5, first=1)
+
+        # Basic handlers for testing and reference
+        self.echo_handler = MessageHandler(Filters.text & (~Filters.command), self.echo)
+        self.dispatcher.add_handler(self.echo_handler)
+        self.caps_handler = CommandHandler('caps', self.caps)
+        self.dispatcher.add_handler(self.caps_handler)
+        # Actually useful handlers
+        self.start_handler = CommandHandler('start', self.start)
+        self.dispatcher.add_handler(self.start_handler)
+        self.register_handler = CommandHandler('register', self.register)
+        self.dispatcher.add_handler(self.register_handler)
+        self.photo_handler = MessageHandler(Filters.photo, self.photo_saver)
+        self.dispatcher.add_handler(self.photo_handler)
+        self.random_handler = CommandHandler('random', self.random_photo)
+        self.dispatcher.add_handler(self.random_handler)
+        self.statistics_handler = CommandHandler('stats', self.statistics)
+        self.dispatcher.add_handler(self.statistics_handler)
+        # Test handlers; undocumented commands
+        self.TEST_start_handler = CommandHandler('start_test', self.start_)
+        self.dispatcher.add_handler(self.TEST_start_handler)
 
         self.logger.info("Telegram bot has started")
 
@@ -114,31 +114,18 @@ class Photobot:
 
     def start_(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
-        username = update.effective_user.username
-        first_name = update.effective_user.first_name
-        last_name = update.effective_user.last_name
         chat_id = update.effective_chat.id
         self.logger.debug(f"start called; user: {tg_id}")
         text = "Hello, i am a Random Photo Bot! I can select random photo, from photos provided!"
         context.bot.send_message(chat_id=chat_id, text=text)
-        text = "You will have small storage of 256MB for you photos."
-        context.bot.send_message(chat_id=chat_id, text=text)
-        user: adb.User = self.sql_session.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+        user: adb.User = self.sql.query(adb.User).filter(adb.User.tg_id == tg_id).first()
         if user is None:
-            first_seen_date = datetime.datetime.now()
-            user = adb.User(tg_id=tg_id, username=username, first_name=first_name, last_name=last_name, first_seen_date=first_seen_date, last_seen_date=first_seen_date, is_registered=False)
-            self.sql_session.add(user)
             text = "Welcome! Looks like you are not registered yet."
             context.bot.send_message(chat_id=chat_id, text=text)
             text = "Run /register to registrate. You will get 256MB of storage for your photos!"
-            context.bot.send_message(chat_id=chat_id, text=text)
-        elif user.is_registered:
-            text = "Welcome! You can run /random to get a random photo from your storage or load more photos."
             context.bot.send_message(chat_id=chat_id, text=text)
         else:
-            text = "Welcome! Looks like you are not registered yet."
-            context.bot.send_message(chat_id=chat_id, text=text)
-            text = "Run /register to registrate. You will get 256MB of storage for your photos!"
+            text = "Welcome! You can run /random to get a random photo from your storage or upload more photos."
             context.bot.send_message(chat_id=chat_id, text=text)
 
 
@@ -168,17 +155,35 @@ class Photobot:
 
     def register_(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
+        username = update.effective_user.username
+        first_name = update.effective_user.first_name
+        last_name = update.effective_user.last_name
         chat_id = update.effective_chat.id
         self.logger.debug(f"register called; user: {tg_id}")
-        text = "Welcome! Now we will try to create an account for you!"
+        text = "Welcome! Now we will now try to create an account for you!"
         context.bot.send_message(chat_id=chat_id, text=text)
-        user: adb.User = self.sql_session.query(adb.User).filter(adb.User.tg_id==tg_id).first()
+        user: adb.User = self.sql.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+        n_users = self.sql.query(adb.User).count()
         if user is None:
-            user = adb.User(tg_id=tg_id)
-        elif user.is_registered:
-            ...
+            if n_users < ACCOUNT_MAX_NUMBER:
+                try:
+                    user = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
+                    self.sql.add(user)
+                    self.logger.info(f"Created user record for {tg_id}")
+
+
+                except Exception as e:
+                    # Cleaning sequence if registration failed
+                    ...
+            else:
+                logging.warning(f"user {tg_id} couldn't register: user limit reached")
+                text = "I am very sorry, we couldn't create an account for you! We are out of storage space!"
+                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+                text = "Try again latter(much latter) or contact alievabbas1@gmail.com for any questions."
+                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         else:
-            ...
+            text = "Looks like you already have registered! You can upload photos or run /random command!"
+            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
 
