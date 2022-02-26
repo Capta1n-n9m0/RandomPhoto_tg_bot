@@ -100,15 +100,16 @@ class Photobot:
         self.logger.debug(f"start called; user: {tg_id}")
         text = "Hello, i am a Random Photo Bot! I can select random photo, from photos provided!"
         context.bot.send_message(chat_id=chat_id, text=text)
-        user: adb.User = self.sql.query(adb.User).filter(adb.User.tg_id == tg_id).first()
-        if user is None:
-            text = "Welcome! Looks like you are not registered yet."
-            context.bot.send_message(chat_id=chat_id, text=text)
-            text = "Run /register to registrate. You will get 256MB of storage for your photos!"
-            context.bot.send_message(chat_id=chat_id, text=text)
-        else:
-            text = "Welcome! You can run /random to get a random photo from your storage or upload more photos."
-            context.bot.send_message(chat_id=chat_id, text=text)
+        with self.sql.begin() as s:
+            user: adb.User = self.sql.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+            if user is None:
+                text = "Welcome! Looks like you are not registered yet."
+                context.bot.send_message(chat_id=chat_id, text=text)
+                text = "Run /register to registrate. You will get 256MB of storage for your photos!"
+                context.bot.send_message(chat_id=chat_id, text=text)
+            else:
+                text = "Welcome! You can run /random to get a random photo from your storage or upload more photos."
+                context.bot.send_message(chat_id=chat_id, text=text)
 
     def register(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
@@ -119,25 +120,22 @@ class Photobot:
         self.logger.debug(f"register called; user: {tg_id}")
         text = "Welcome! Now we will now try to create an account for you!"
         context.bot.send_message(chat_id=chat_id, text=text)
-        self.sql.begin()
-        user: adb.User = self.sql.query(adb.User).filter(adb.User.tg_id == tg_id).first()
-        n_users = self.sql.query(adb.User).count()
-        self.sql.commit()
+        with self.sql.begin() as s:
+            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+            n_users = s.query(adb.User).count()
         if user is None:
             if n_users < ACCOUNT_MAX_NUMBER:
                 try:
-                    self.sql.begin()
-                    new_user: adb.User = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
-                    self.sql.add(new_user)
-                    self.sql.commit()
-                    self.sql.begin()
+                    with self.sql.begin() as s:
+                        new_user: adb.User = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
+                        s.add(new_user)
                     self.logger.info(f"Created user record for {tg_id}")
                     storage_name = f"{uuid4()}"
                     storage_fullpath = PHOTOS_FOLDER / storage_name
                     os.mkdir(f"{storage_fullpath}")
-                    storage = adb.Storage(path=storage_name, user_id=new_user.user_id)
-                    self.sql.add(storage)
-                    self.sql.commit()
+                    with self.sql.begin() as s:
+                        storage = adb.Storage(path=storage_name, user_id=new_user.user_id)
+                        s.add(storage)
                     self.logger.info(f"Created storage {storage.storage_id} for user {new_user.user_id} tg_id {tg_id}")
                     self.logger.info(f"user {tg_id} successfully registered")
                     text = "Congratulations! Now you have a profile and 256MB of storage for your photos!"
