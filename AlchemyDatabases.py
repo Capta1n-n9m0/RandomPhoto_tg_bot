@@ -17,7 +17,7 @@ CONFIG = {
     "database": os.environ['TGBOT_DB_NAME'],
 }
 
-ENGINE = create_engine("mysql://%s:%s(%s):3306/%s" %
+ENGINE = create_engine("mysql://%s:%s@%s:3306/%s" %
                        (CONFIG["user"], CONFIG["password"], CONFIG["host"], CONFIG["database"]),
                        echo=True)
 
