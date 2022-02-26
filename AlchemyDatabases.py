@@ -28,7 +28,6 @@ class User(Base):
     username            = Column(String(32), nullable=True)
     first_name          = Column(String(64), nullable=True)
     last_name           = Column(String(64), nullable=True)
-    first_seen_date     = Column(DateTime, nullable=True)
     registration_date   = Column(DateTime, nullable=True)
     last_seen_date      = Column(DateTime, nullable=True)
     is_registered       = Column(Boolean, nullable=True)
