@@ -254,7 +254,7 @@ class Photobot:
                 photo_size = photo.file_size
                 filename = f"{uuid4()}.png"
                 self.logger.info(f"File received. id:{photo.file_id}, uid:{photo.file_unique_id}, size:{photo.file_size}, new_name:{filename}")
-                filepath = PHOTOS_FOLDER / storage / filename
+                filepath = PHOTOS_FOLDER / storage.path / filename
                 photo.get_file(timeout=2).download(custom_path=filepath)
                 sha = hashlib.sha256()
                 with open(filepath, "rb") as f:
