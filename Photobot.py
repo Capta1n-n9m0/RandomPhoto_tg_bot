@@ -166,6 +166,7 @@ class Photobot:
         if user is None:
             if n_users < ACCOUNT_MAX_NUMBER:
                 try:
+                    self.sql.begin()
                     user = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
                     self.sql.add(user)
                     self.sql.commit()
