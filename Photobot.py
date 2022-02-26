@@ -170,6 +170,7 @@ class Photobot:
                     user = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
                     self.sql.add(user)
                     self.sql.commit()
+                    self.sql.begin()
                     self.logger.info(f"Created user record for {tg_id}")
                     storage_name = f"{uuid4()}"
                     storage_fullpath = PHOTOS_FOLDER / storage_name
