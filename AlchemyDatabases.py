@@ -30,7 +30,6 @@ class User(Base):
     last_name           = Column(String(64), nullable=True)
     registration_date   = Column(DateTime, nullable=True)
     last_seen_date      = Column(DateTime, nullable=True)
-    is_registered       = Column(Boolean, nullable=True)
     photos              = relationship("Photo")
     storages            = relationship("Storage")
 
