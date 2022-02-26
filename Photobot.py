@@ -101,7 +101,7 @@ class Photobot:
         text = "Hello, i am a Random Photo Bot! I can select random photo, from photos provided!"
         context.bot.send_message(chat_id=chat_id, text=text)
         with self.sql.begin() as s:
-            user: adb.User = self.sql.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
             if user is None:
                 text = "Welcome! Looks like you are not registered yet."
                 context.bot.send_message(chat_id=chat_id, text=text)
