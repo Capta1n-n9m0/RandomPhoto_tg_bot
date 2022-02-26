@@ -76,10 +76,10 @@ class Photobot:
         self.statistics_handler = CommandHandler('stats', self.statistics)
         self.dispatcher.add_handler(self.statistics_handler)
         # Test handlers; undocumented commands
-        self.TEST_start_handler = CommandHandler('start_test', self.start_)
-        self.dispatcher.add_handler(self.TEST_start_handler)
-        self.TEST_register_handler = CommandHandler('register_test', self.register_)
-        self.dispatcher.add_handler(self.TEST_register_handler)
+        # self.TEST_start_handler = CommandHandler('start_test', self.start_)
+        # self.dispatcher.add_handler(self.TEST_start_handler)
+        # self.TEST_register_handler = CommandHandler('register_test', self.register_)
+        # self.dispatcher.add_handler(self.TEST_register_handler)
 
         self.logger.info("Telegram bot has started")
 
@@ -94,24 +94,7 @@ class Photobot:
                 del self.user_sessions[ids]
                 break
 
-
     def start(self, update: Update, context: CallbackContext):
-        tg_id = update.effective_user.id
-        self.logger.debug(f"start called; user: {tg_id}")
-        text = "Hello, i am a Random Photo Bot! I can select random photo, from photos provided!"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-        text = "You will have small storage of 256MB for you photos."
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-        if len(self.user.select_by_tg_id(tg_id)) > 0:
-            text = "Welcome! You can run /random to get a random photo from your storage or load more photos."
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-        else:
-            text = "Welcome! Looks like you are not registered yet."
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            text = "Run /register to registrate. You will get 256MB of storage for your photos!"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
-    def start_(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         chat_id = update.effective_chat.id
         self.logger.debug(f"start called; user: {tg_id}")
@@ -127,32 +110,7 @@ class Photobot:
             text = "Welcome! You can run /random to get a random photo from your storage or upload more photos."
             context.bot.send_message(chat_id=chat_id, text=text)
 
-
     def register(self, update: Update, context: CallbackContext):
-        tg_id = update.effective_user.id
-        self.logger.debug(f"register called; user: {tg_id}")
-        text = "Welcome! Now we will try to create an account for you!"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-        temp = self.user.select_by_tg_id(tg_id)
-        if len(temp) == 0:
-            if self.user.count() < ACCOUNT_MAX_NUMBER:
-                user_id = self.user.insert(tg_id)
-                storage_name = f"{uuid4()}"
-                storage_fullpath = PHOTOS_FOLDER / f"{storage_name}"
-                os.mkdir(f"{storage_fullpath}")
-                self.storage.insert(user_id, storage_name)
-                self.logger.info(f"user {tg_id} successfully registered")
-                text = "Congratulations! Now you have a profile and 256MB of storage for your photos!"
-                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            else:
-                logging.warning(f"user {tg_id} couldn't register: user limit reached")
-                text = "I am very sorry! There is now enough space for you... You can contact alievabbas@gmail.com for any questions."
-                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-        else:
-            text = "Looks like you already have registered! You can upload photos or run /random command!"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
-    def register_(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         username = update.effective_user.username
         first_name = update.effective_user.first_name
@@ -198,8 +156,6 @@ class Photobot:
             text = "Looks like you already have registered! You can upload photos or run /random command!"
             context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
-
-
     def echo(self, update: Update, context: CallbackContext):
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
@@ -212,8 +168,6 @@ class Photobot:
         text_caps = ' '.join(context.args).upper()
         print("caps called")
         context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
-
-
 
     def photo_saver(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
