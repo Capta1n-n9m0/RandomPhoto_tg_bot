@@ -211,7 +211,7 @@ class Photobot:
                             sha.update(data)
                     photo_record = adb.Photo(filename=filename, size=photo_size, hash=f"{sha.hexdigest()}", storage_id=storage_id, user_id=user_id)
                     s.add(photo_record)
-                    storage.size += photo_size
+                    storage.used_space += photo_size
                     self.logger.info(f"Photo {photo_record.photo_id} added to {storage.storage_id}")
                 else:
                     text = "Sorry, you can't upload anymore photos, you are out of space!"
