@@ -33,7 +33,11 @@ LOG_CONSOLE_LOGGER.setFormatter(LOG_BASE_FORMAT)
 LOG_CONSOLE_LOGGER.setLevel(logging.DEBUG)
 LOG_ROOT_LOGGER.addHandler(LOG_CONSOLE_LOGGER)
 LOG_ROOT_LOGGER.setLevel(logging.DEBUG)
-
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)-5.5s]  <%(name)s>  %(message)s",
+    handlers=(LOG_FILE_LOGGER, LOG_CONSOLE_LOGGER)
+)
 HTTP_API_KEY = os.environ['TGBOT_API_KEY']
 
 ROOT_FOLDER = Path(__file__).parent
