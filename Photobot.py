@@ -1,6 +1,5 @@
 import datetime
 import os
-import threading
 import time
 
 import telegram.ext
@@ -80,6 +79,10 @@ class Photobot:
         # self.dispatcher.add_handler(self.TEST_start_handler)
         # self.TEST_register_handler = CommandHandler('register_test', self.register_)
         # self.dispatcher.add_handler(self.TEST_register_handler)
+        self.TEST_random_handler = CommandHandler('random_test', self.random_photo_)
+        self.dispatcher.add_handler(self.TEST_random_handler)
+        self.TEST_statistics_handler = CommandHandler('stats_test', self.statistics_)
+        self.dispatcher.add_handler(self.TEST_statistics_handler)
 
         self.logger.info("Telegram bot has started")
 
@@ -217,8 +220,6 @@ class Photobot:
                 text = "If you want to resize you storage or delete some photos, contact alievabbas1@gmail.com"
                 context.bot.send_message(chat_id=chat_id, text=text)
 
-
-
     def random_photo(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         self.logger.debug(f"random_photo called; user: {tg_id}")
@@ -245,6 +246,36 @@ class Photobot:
                     context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
                 self.logger.info(f"Photo {full_photo_path} send to user {tg_id}")
 
+    def random_photo_(self, update: Update, context: CallbackContext):
+        tg_id = update.effective_user.id
+        self.logger.debug(f"random_photo called; user: {tg_id}")
+        chat_id = update.effective_chat.id
+        with self.sql.begin() as s:
+            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+        if user is None:
+            text = "Sorry, you can't call /random, because you don't have an account!"
+            context.bot.send_message(chat_id=chat_id, text=text)
+            text = "Run /register to get an account!"
+            context.bot.send_message(chat_id=chat_id, text=text)
+            self.logger.warning(f"user {tg_id} failed getting random photo")
+        else:
+            user_id = user.user_id
+            with self.sql.begin() as s:
+                photos: tuple[adb.Photo] = s.query(adb.Photo).filter(adb.Photo.user_id == user_id)
+                storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user_id)
+                storage_path = storage.path
+            if len(photos) == 0:
+                text = "Sorry, you can't call /random, because you don't have any photos!"
+                context.bot.send_message(chat_id=chat_id, text=text)
+                text = "You can upload some just by sending them to the bot!"
+                context.bot.send_message(chat_id=chat_id, text=text)
+            else:
+                random_photo_path = random.choice(photos).filename
+                full_photo_path = PHOTOS_FOLDER / storage_path / random_photo_path
+                with open(full_photo_path, "rb") as f:
+                    context.bot.send_photo(chat_id=chat_id, photo=f)
+                self.logger.info(f"Photo {full_photo_path} send to user {tg_id}")
+
     def statistics(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         self.logger.debug(f"statistics called for user {tg_id}")
@@ -258,6 +289,19 @@ class Photobot:
         text = f"You have used {used_space_mb:3.4f}MB / {total_space_mb:3.4f}MB"
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
+    def statistics_(self, update: Update, context: CallbackContext):
+        tg_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        with self.sql.begin() as s:
+            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+            storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage == user.user_id).first()
+            n_photos: int = s.query(adb.Photo).filter(adb.Photo.user_id == user.user_id).count().scalar()
+            used_space_mb = (storage.used_space / 1024) / 1024
+            total_space_mb = (storage.size / 1024) / 1024
+        text = f"You have {n_photos} photos!"
+        context.bot.send_message(chat_id=chat_id, text=text)
+        text = f"You have used {used_space_mb:3.4f}MB / {total_space_mb:3.4f}MB"
+        context.bot.send_message(chat_id=chat_id, text=text)
 
 
 
