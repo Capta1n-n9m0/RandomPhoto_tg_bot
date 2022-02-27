@@ -262,7 +262,7 @@ class Photobot:
             user_id = user.user_id
             with self.sql.begin() as s:
                 photos: tuple[adb.Photo] = s.query(adb.Photo).filter(adb.Photo.user_id == user_id)
-                storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user_id)
+                storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user_id).first()
                 storage_path = storage.path
             if len(photos) == 0:
                 text = "Sorry, you can't call /random, because you don't have any photos!"
