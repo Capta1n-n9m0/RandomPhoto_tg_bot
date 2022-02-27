@@ -295,7 +295,7 @@ class Photobot:
         with self.sql.begin() as s:
             user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
             storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage == user.user_id).first()
-            n_photos: int = s.query(adb.Photo).filter(adb.Photo.user_id == user.user_id).count().scalar()
+            n_photos: int = s.query(adb.Photo).filter(adb.Photo.user_id == user.user_id).count()
             used_space_mb = (storage.used_space / 1024) / 1024
             total_space_mb = (storage.size / 1024) / 1024
         text = f"You have {n_photos} photos!"
