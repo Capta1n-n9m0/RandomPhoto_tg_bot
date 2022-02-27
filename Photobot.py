@@ -75,14 +75,7 @@ class Photobot:
         self.statistics_handler = CommandHandler('stats', self.statistics)
         self.dispatcher.add_handler(self.statistics_handler)
         # Test handlers; undocumented commands
-        # self.TEST_start_handler = CommandHandler('start_test', self.start_)
-        # self.dispatcher.add_handler(self.TEST_start_handler)
-        # self.TEST_register_handler = CommandHandler('register_test', self.register_)
-        # self.dispatcher.add_handler(self.TEST_register_handler)
-        self.TEST_random_handler = CommandHandler('random_test', self.random_photo_)
-        self.dispatcher.add_handler(self.TEST_random_handler)
-        self.TEST_statistics_handler = CommandHandler('stats_test', self.statistics_)
-        self.dispatcher.add_handler(self.TEST_statistics_handler)
+
 
         self.logger.info("Telegram bot has started")
 
@@ -222,32 +215,6 @@ class Photobot:
     def random_photo(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         self.logger.debug(f"random_photo called; user: {tg_id}")
-        user_data = self.user.select_by_tg_id(tg_id)
-        if len(user_data) == 0:
-            text = "Sorry, you can't call /random, because you don't have an account!"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            text = "Run /register to get an account!"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            self.logger.warning(f"user {tg_id} failed getting random photo")
-        else:
-            user_id = user_data[0]["user_id"]
-            photo_data = self.photo.select_by_user_id(user_id)
-            if len(photo_data) == 0:
-                text = "Sorry, you can't call /random, because you don't have any photos!"
-                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-                text = "You can upload some just by sending them to the bot!"
-                context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            else:
-                random_photo_path = random.choice(photo_data)["filename"]
-                storage_path = self.storage.select_by_user_id(user_id)[0]["path"]
-                full_photo_path = PHOTOS_FOLDER / storage_path / random_photo_path
-                with open(full_photo_path, "rb") as f:
-                    context.bot.send_photo(chat_id=update.effective_chat.id, photo=f)
-                self.logger.info(f"Photo {full_photo_path} send to user {tg_id}")
-
-    def random_photo_(self, update: Update, context: CallbackContext):
-        tg_id = update.effective_user.id
-        self.logger.debug(f"random_photo called; user: {tg_id}")
         chat_id = update.effective_chat.id
         with self.sql.begin() as s:
             user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
@@ -276,19 +243,6 @@ class Photobot:
                 self.logger.info(f"Photo {full_photo_path} send to user {tg_id}")
 
     def statistics(self, update: Update, context: CallbackContext):
-        tg_id = update.effective_user.id
-        self.logger.debug(f"statistics called for user {tg_id}")
-        user_data = self.user.select_by_tg_id(tg_id)[0]
-        storage_data = self.storage.select_by_user_id(user_data["user_id"])[0]
-        n_photos = self.photo.count_by_user_id(user_data["user_id"])
-        used_space_mb = (storage_data["used_space"] / 1024) / 1024
-        total_space_mb = (storage_data["size"] / 1024) / 1024
-        text = f"You have {n_photos} photos!"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-        text = f"You have used {used_space_mb:3.4f}MB / {total_space_mb:3.4f}MB"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-
-    def statistics_(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
         chat_id = update.effective_chat.id
         with self.sql.begin() as s:
