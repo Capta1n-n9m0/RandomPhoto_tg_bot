@@ -188,37 +188,36 @@ class Photobot:
                 storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user_id).first()
                 storage_size = storage.size
                 storage_used_space = storage.used_space
-            if storage_used_space < storage_size:
-                if self.user_sessions.get(tg_id, None) is None:
-                    text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
-                    self.user_sessions[tg_id] = {}
-                    self.user_sessions[tg_id]["photos"] = 0
-                    self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
-                    self.user_sessions[tg_id]["first_photo"] = time.time()
-                    context.bot.send_message(chat_id=chat_id, text=text)
-                self.user_sessions[tg_id]["timestamp"] = time.time()
-                self.user_sessions[tg_id]["photos"] += 1
-                storage_id = storage.storage_id
-                photo = update.message.photo[len(update.message.photo) - 1]
-                photo_size = photo.file_size
-                filename = f"{uuid4()}.png"
-                self.logger.info(f"File received. id:{photo.file_id}, uid:{photo.file_unique_id}, size:{photo.file_size}, new_name:{filename}")
-                filepath = PHOTOS_FOLDER / storage.path / filename
-                photo.get_file(timeout=2).download(custom_path=filepath)
-                sha = hashlib.sha256()
-                with open(filepath, "rb") as f:
-                    while data := f.read(8 * 1024):
-                        sha.update(data)
-                with self.sql.begin() as s:
+                if storage_used_space < storage_size:
+                    if self.user_sessions.get(tg_id, None) is None:
+                        text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
+                        self.user_sessions[tg_id] = {}
+                        self.user_sessions[tg_id]["photos"] = 0
+                        self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
+                        self.user_sessions[tg_id]["first_photo"] = time.time()
+                        context.bot.send_message(chat_id=chat_id, text=text)
+                    self.user_sessions[tg_id]["timestamp"] = time.time()
+                    self.user_sessions[tg_id]["photos"] += 1
+                    storage_id = storage.storage_id
+                    photo = update.message.photo[len(update.message.photo) - 1]
+                    photo_size = photo.file_size
+                    filename = f"{uuid4()}.png"
+                    self.logger.info(f"File received. id:{photo.file_id}, uid:{photo.file_unique_id}, size:{photo.file_size}, new_name:{filename}")
+                    filepath = PHOTOS_FOLDER / storage.path / filename
+                    photo.get_file(timeout=2).download(custom_path=filepath)
+                    sha = hashlib.sha256()
+                    with open(filepath, "rb") as f:
+                        while data := f.read(8 * 1024):
+                            sha.update(data)
                     photo_record = adb.Photo(filename=filename, size=photo_size, hash=f"{sha.hexdigest()}", storage_id=storage_id, user_id=user_id)
                     s.add(photo_record)
                     storage.size += photo_size
                     self.logger.info(f"Photo {photo_record.photo_id} added to {storage.storage_id}")
-            else:
-                text = "Sorry, you can't upload anymore photos, you are out of space!"
-                context.bot.send_message(chat_id=chat_id, text=text)
-                text = "If you want to resize you storage or delete some photos, contact alievabbas1@gmail.com"
-                context.bot.send_message(chat_id=chat_id, text=text)
+                else:
+                    text = "Sorry, you can't upload anymore photos, you are out of space!"
+                    context.bot.send_message(chat_id=chat_id, text=text)
+                    text = "If you want to resize you storage or delete some photos, contact alievabbas1@gmail.com"
+                    context.bot.send_message(chat_id=chat_id, text=text)
 
     def random_photo(self, update: Update, context: CallbackContext):
         tg_id = update.effective_user.id
