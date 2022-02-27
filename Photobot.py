@@ -261,7 +261,7 @@ class Photobot:
         else:
             user_id = user.user_id
             with self.sql.begin() as s:
-                photos: tuple[adb.Photo] = s.query(adb.Photo).filter(adb.Photo.user_id == user_id)
+                photos: tuple[adb.Photo] = s.query(adb.Photo).filter(adb.Photo.user_id == user_id).all()
                 storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user_id).first()
                 storage_path = storage.path
             if len(photos) == 0:
