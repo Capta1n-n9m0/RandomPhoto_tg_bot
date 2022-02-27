@@ -1,27 +1,19 @@
 import datetime
 import os
+import shutil
 import time
-
 import telegram.ext
 from telegram.ext import Updater, Dispatcher
 from telegram import Update
 from telegram.ext import CallbackContext
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters
-
 from uuid import uuid4
-
 from pathlib import Path
-
+import random
+import hashlib
 import logging
 import logging.handlers
-
-import random
-
-import Databases
-import AlchemyDatabases as adb
-import hashlib
-
 LOG_BASE_FORMAT = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  <%(name)s>  %(message)s")
 LOG_ROOT_LOGGER = logging.getLogger(__name__)
 LOG_FILE_LOGGER = logging.handlers.RotatingFileHandler("telegram.log", mode='a', maxBytes=10*1024*1024, backupCount=10, encoding='UTF-8')
@@ -38,6 +30,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)-5.5s]  <%(name)s>  %(message)s",
     handlers=(LOG_FILE_LOGGER, LOG_CONSOLE_LOGGER)
 )
+from AlchemyDatabases import User, Photo, Storage, SESSION
+
 HTTP_API_KEY = os.environ['TGBOT_API_KEY']
 
 ROOT_FOLDER = Path(__file__).parent
@@ -56,10 +50,7 @@ class Photobot:
         self.updater = Updater(token=HTTP_API_KEY, use_context=True)
         self.dispatcher: Dispatcher = self.updater.dispatcher
         self.jobs: telegram.ext.JobQueue = self.updater.job_queue
-        self.user = Databases.User()
-        self.storage = Databases.Storage()
-        self.photo = Databases.Photo()
-        self.sql = adb.SESSION
+        self.sql = SESSION
         # Jobs
         self.cleaning_job = self.jobs.run_repeating(self.cleaner, interval=5, first=1)
         # Basic handlers for testing and reference
@@ -101,7 +92,7 @@ class Photobot:
         text = "Hello, i am a Random Photo Bot! I can select random photo, from photos provided!"
         context.bot.send_message(chat_id=chat_id, text=text)
         with self.sql.begin() as s:
-            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+            user: User = s.query(User).filter(User.tg_id == tg_id).first()
             if user is None:
                 text = "Welcome! Looks like you are not registered yet."
                 context.bot.send_message(chat_id=chat_id, text=text)
@@ -121,20 +112,20 @@ class Photobot:
         text = "Welcome! Now we will now try to create an account for you!"
         context.bot.send_message(chat_id=chat_id, text=text)
         with self.sql.begin() as s:
-            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
-            n_users = s.query(adb.User).count()
+            user: User = s.query(User).filter(User.tg_id == tg_id).first()
+            n_users = s.query(User).count()
         if user is None:
             if n_users < ACCOUNT_MAX_NUMBER:
                 try:
                     with self.sql.begin() as s:
-                        new_user: adb.User = adb.User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
+                        new_user: User = User(tg_id=tg_id, username=username, last_name=last_name, first_name=first_name)
                         s.add(new_user)
                     self.logger.info(f"Created user record for {tg_id}")
                     storage_name = f"{uuid4()}"
                     storage_fullpath = PHOTOS_FOLDER / storage_name
                     os.mkdir(f"{storage_fullpath}")
                     with self.sql.begin() as s:
-                        storage = adb.Storage(path=storage_name, user_id=new_user.user_id)
+                        storage = Storage(path=storage_name, user_id=new_user.user_id)
                         s.add(storage)
                     self.logger.info(f"Created storage {storage.storage_id} for user {new_user.user_id} tg_id {tg_id}")
                     self.logger.info(f"user {tg_id} successfully registered")
@@ -172,7 +163,7 @@ class Photobot:
         chat_id = update.effective_chat.id
         self.logger.debug(f"photo_saver called; user: {tg_id}")
         with self.sql.begin() as s:
-            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+            user: User = s.query(User).filter(User.tg_id == tg_id).first()
         if user is None:
             text = "Sorry, you can't upload any photos, because you don't have an account!"
             context.bot.send_message(chat_id=chat_id, text=text)
@@ -182,13 +173,14 @@ class Photobot:
         else:
             user_id = user.user_id
             with self.sql.begin() as s:
-                storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user_id).first()
+                storage: Storage = s.query(Storage).filter(Storage.user_id == user_id).first()
                 storage_size = storage.size
                 storage_used_space = storage.used_space
                 if storage_used_space < storage_size:
                     if self.user_sessions.get(tg_id, None) is None:
                         text = "Starting the transmission! If no photos will be detected in 10 seconds transmission of photos will be considered closed."
                         self.user_sessions[tg_id] = {}
+                        self.user_sessions[tg_id]["uploading"] = True
                         self.user_sessions[tg_id]["photos"] = 0
                         self.user_sessions[tg_id]["chat_id"] = update.effective_chat.id
                         self.user_sessions[tg_id]["first_photo"] = time.time()
@@ -206,7 +198,7 @@ class Photobot:
                     with open(filepath, "rb") as f:
                         while data := f.read(8 * 1024):
                             sha.update(data)
-                    photo_record = adb.Photo(filename=filename, size=photo_size, hash=f"{sha.hexdigest()}", storage_id=storage_id, user_id=user_id)
+                    photo_record = Photo(filename=filename, size=photo_size, hash=f"{sha.hexdigest()}", storage_id=storage_id, user_id=user_id)
                     s.add(photo_record)
                     storage.used_space += photo_size
                     self.logger.info(f"Photo {photo_record.photo_id} added to {storage.storage_id}")
@@ -221,7 +213,7 @@ class Photobot:
         self.logger.debug(f"random_photo called; user: {tg_id}")
         chat_id = update.effective_chat.id
         with self.sql.begin() as s:
-            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
+            user: User = s.query(User).filter(User.tg_id == tg_id).first()
         if user is None:
             text = "Sorry, you can't call /random, because you don't have an account!"
             context.bot.send_message(chat_id=chat_id, text=text)
@@ -231,8 +223,8 @@ class Photobot:
         else:
             user_id = user.user_id
             with self.sql.begin() as s:
-                photos: tuple[adb.Photo] = s.query(adb.Photo).filter(adb.Photo.user_id == user_id).all()
-                storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user_id).first()
+                photos: tuple[Photo] = s.query(Photo).filter(Photo.user_id == user_id).all()
+                storage: Storage = s.query(Storage).filter(Storage.user_id == user_id).first()
                 storage_path = storage.path
             if len(photos) == 0:
                 text = "Sorry, you can't call /random, because you don't have any photos!"
@@ -250,9 +242,9 @@ class Photobot:
         tg_id = update.effective_user.id
         chat_id = update.effective_chat.id
         with self.sql.begin() as s:
-            user: adb.User = s.query(adb.User).filter(adb.User.tg_id == tg_id).first()
-            storage: adb.Storage = s.query(adb.Storage).filter(adb.Storage.user_id == user.user_id).first()
-            n_photos: int = s.query(adb.Photo).filter(adb.Photo.user_id == user.user_id).count()
+            user: User = s.query(User).filter(User.tg_id == tg_id).first()
+            storage: Storage = s.query(Storage).filter(Storage.user_id == user.user_id).first()
+            n_photos: int = s.query(Photo).filter(Photo.user_id == user.user_id).count()
             used_space_mb = (storage.used_space / 1024) / 1024
             total_space_mb = (storage.size / 1024) / 1024
         text = f"You have {n_photos} photos!"
@@ -260,6 +252,35 @@ class Photobot:
         text = f"You have used {used_space_mb:3.4f}MB / {total_space_mb:3.4f}MB"
         context.bot.send_message(chat_id=chat_id, text=text)
 
+    def leave(self, update: Update, context: CallbackContext):
+        tg_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        if self.user_sessions.get(tg_id, None) is None:
+            self.user_sessions[tg_id] = {}
+            text = "If you are sure you want to delete an account, run /leave again."
+            context.bot.send_message(chat_id=chat_id, text=text)
+        else:
+            if self.user_sessions[tg_id].get("uploading", None) is None:
+                if self.user_sessions[tg_id].get("deleting", None) is None:
+                    self.user_sessions[tg_id]["deleting"] = 1
+                    text = "If you are sure you want to delete an account, run /leave again."
+                    context.bot.send_message(chat_id=chat_id, text=text)
+                else:
+                    with self.sql.begin() as s:
+                        user: User = s.query(User).filter(User.tg_id == tg_id).first()
+                        storage: Storage = s.query(Storage).filter(Storage.user_id == user.user_id).first()
+                        photos: list[Photo] = s.query(Photo).filter(Photo.user_id == user.user_id).all()
+                        storage_fullpath = PHOTOS_FOLDER / storage.path
+                        s.delete(user)
+                        s.delete(storage)
+                        for photo in photos:
+                            s.delete(photo)
+                        shutil.rmtree(storage_fullpath)
+
+                    ...
+            else:
+                text = "Please wait for photo uploading to finnish before deleting your account."
+                context.bot.send_message(chat_id=chat_id, text=text)
 
 
 
