@@ -77,11 +77,16 @@ class Photobot:
     def cleaner(self, context: telegram.ext.CallbackContext):
         t = time.time()
         for ids in self.user_sessions.keys():
-            if (delta := int(t - self.user_sessions[ids]["timestamp"])) >= 10:
-                chat = self.user_sessions[ids]["chat_id"]
+            if round(t - self.user_sessions[ids]["timestamp"], 2) >= 10:
+                chat_id = self.user_sessions[ids]["chat_id"]
                 photos = self.user_sessions[ids]["photos"]
                 text = f"Transmission ended after {round(t - self.user_sessions[ids]['first_photo'], 2)} seconds! {photos} received!"
-                context.bot.send_message(chat_id=chat, text=text)
+                context.bot.send_message(chat_id=chat_id, text=text)
+                del self.user_sessions[ids]
+                break
+            if (delta := round(t - self.user_sessions[ids]["deleting"], 2)) >= 20:
+                chat_id = self.user_sessions[ids]["chat_id"]
+                text = f"Deleting operation aborted after {delta}s."
                 del self.user_sessions[ids]
                 break
 
@@ -259,14 +264,25 @@ class Photobot:
             self.user_sessions[tg_id] = {}
             text = "If you are sure you want to delete an account, run /leave again."
             context.bot.send_message(chat_id=chat_id, text=text)
+            self.user_sessions[tg_id]["deleting"] = time.time()
+            self.user_sessions[tg_id]["chat_id"] = chat_id
+            text = "If you are sure you want to delete an account, run /leave again."
+            context.bot.send_message(chat_id=chat_id, text=text)
+            text = "If it was a mistake, just wait, process will be aborted in 20 seconds."
+            context.bot.send_message(chat_id=chat_id, text=text)
         else:
             if self.user_sessions[tg_id].get("uploading", None) is None:
                 if self.user_sessions[tg_id].get("deleting", None) is None:
-                    self.user_sessions[tg_id]["deleting"] = 1
+                    self.user_sessions[tg_id]["deleting"] = time.time()
+                    self.user_sessions[tg_id]["chat_id"] = chat_id
                     text = "If you are sure you want to delete an account, run /leave again."
+                    context.bot.send_message(chat_id=chat_id, text=text)
+                    text = "If it was a mistake, just wait, process will be aborted in 20 seconds."
                     context.bot.send_message(chat_id=chat_id, text=text)
                 else:
                     with self.sql.begin() as s:
+                        text = "Your account is being deleted now."
+                        context.bot.send_message(chat_id=chat_id, text=text)
                         user: User = s.query(User).filter(User.tg_id == tg_id).first()
                         storage: Storage = s.query(Storage).filter(Storage.user_id == user.user_id).first()
                         photos: list[Photo] = s.query(Photo).filter(Photo.user_id == user.user_id).all()
@@ -276,8 +292,8 @@ class Photobot:
                         for photo in photos:
                             s.delete(photo)
                         shutil.rmtree(storage_fullpath)
-
-                    ...
+                    text = "Your account and all your photos have been successfully deleted, it was nice having you."
+                    context.bot.send_message(chat_id=chat_id, text=text)
             else:
                 text = "Please wait for photo uploading to finnish before deleting your account."
                 context.bot.send_message(chat_id=chat_id, text=text)
